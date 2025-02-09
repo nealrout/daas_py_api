@@ -1,4 +1,6 @@
-daas_py_config @ file:../daas_py_config
+daas_py_common
+daas_py_config
+build
 requests
 django
 djangorestframework

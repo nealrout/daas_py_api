@@ -1,5 +1,9 @@
+# Include all Python source files
+recursive-include daas_py_api *.py
+
+# Ensure README and requirements are included
 include README.md
 include requirements.txt
-recursive-include docs *
-recursive-include data *
-exclude *.pyc
+
+# Exclude compiled Python files
+global-exclude __pycache__ *.pyc *.pyo *.pyd *.env

@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import api_root, DomainDb, DomainDbUpsert, DomainCache
+from .views import api_root, DomainDb, DomainDbUpsert, DomainCache, DomainCacheQuery
 from daas_py_config import config
 import os
 
@@ -11,4 +11,5 @@ urlpatterns = [
     path(f"{DOMAIN}/db/", DomainDb.as_view(), name=f"{DOMAIN}-db"),
     path(f"{DOMAIN}/db/upsert/", DomainDbUpsert.as_view(), name=f"{DOMAIN}-db-upsert"),
     path(f"{DOMAIN}/cache", DomainCache.as_view(), name=f"{DOMAIN}-cache"),
+    path(f"{DOMAIN}/cache/query", DomainCacheQuery.as_view(), name=f"{DOMAIN}-cache-query"),
 ]

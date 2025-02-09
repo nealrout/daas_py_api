@@ -39,16 +39,12 @@ def api_root(request, format=None):
         f"{DOMAIN.lower()}-db": reverse(f"{DOMAIN.lower()}-db", request=request, format=format),
         f"{DOMAIN.lower()}-db-upsert": reverse(f"{DOMAIN.lower()}-db-upsert", request=request, format=format),
         f"{DOMAIN.lower()}-cache": reverse(f"{DOMAIN.lower()}-cache", request=request, format=format),
+        f"{DOMAIN.lower()}-cache-query": reverse(f"{DOMAIN.lower()}-cache-query", request=request, format=format),
     })
 
 # Class for getting all domain objects in the provided json.
 class DomainDb(APIView):
-    """
-    Custom API view to retrieve multiple domain objects using stored procedures.
-    """
-
     def get(self, request):
-        
         """Retrieve all domain objects using a stored procedure"""
         with connection.cursor() as cursor:
             cursor.execute(f"SELECT * FROM {DB_PROC_GET}();")
@@ -57,7 +53,7 @@ class DomainDb(APIView):
         
         # Apply pagination
         paginator = PageNumberPagination()
-        paginator.page_size = 10  # Set the number of items per page
+        paginator.page_size = int(configs.PAGINATION_SIZE_DB)  # Set the number of items per page
         paginated_results = paginator.paginate_queryset(results, request)
 
         # Return the paginated response
@@ -83,14 +79,8 @@ class DomainDb(APIView):
             logger.error(f"Error retrieving {DOMAIN.lower()}: {str(e)}")
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-# Class for getting all domain objects in the provided json.
 class DomainDbUpsert(APIView):
-    """
-    Custom API upsert multiple domain objects using stored procedures.
-    """
-
     def get(self, request):
-        
         """Retrieve all domain objects using a stored procedure"""
         with connection.cursor() as cursor:
             cursor.execute(f"SELECT * FROM {DB_PROC_GET}();")
@@ -99,7 +89,7 @@ class DomainDbUpsert(APIView):
         
         # Apply pagination
         paginator = PageNumberPagination()
-        paginator.page_size = 10  # Set the number of items per page
+        paginator.page_size = int(configs.PAGINATION_SIZE_DB)  # Set the number of items per page
         paginated_results = paginator.paginate_queryset(results, request)
 
         # Return the paginated response
@@ -128,25 +118,25 @@ class DomainDbUpsert(APIView):
             logger.error(f"Error retrieving {DOMAIN.lower()}: {str(e)}")
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-#  Class for getting all domain objects from SOLR.
-class DomainCache(APIView):
-    """
-    API view to fetch domain objects from a SOLR instance.
-    """
 
+class DomainCache(APIView):
     def get(self, request):
-        """Retrieve domain objects from SOLR."""
-        solr = pysolr.Solr(SOLR_URL, always_commit=True, timeout=10)
+        """Retrieve ALL domain objects from SOLR."""
+        solr = pysolr.Solr(SOLR_URL, 
+                           auth=(config.get_secret('SOLR_USER'), 
+                                config.get_secret('SOLR_PASSWORD')), 
+                            always_commit=True, 
+                            timeout=int(configs.SOLR_TIMEOUT))
 
         # Extract query parameters (if any)
         query = request.GET.get("q", "*:*")  # Default to all domain objects
         filters = request.GET.getlist("fq")  # Filter queries if provided
 
-        # Construct SOLR search parameters
+        # Construct Default SOLR search parameters
         solr_params = {
             "q": query,
-            "fq": filters,  # Apply filters if provided
-            "rows": 100  # Fetch up to 100 records (adjust as needed)
+            "fq": filters,
+            "rows": int(configs.SOLR_MAX_ROW) 
         }
 
         results = solr.search(**solr_params)
@@ -154,14 +144,14 @@ class DomainCache(APIView):
 
         # Apply pagination
         paginator = PageNumberPagination()
-        paginator.page_size = 10  # Set page size
+        paginator.page_size = int(configs.PAGINATION_SIZE_SOLR)
         paginated_results = paginator.paginate_queryset(documents, request)
 
         return paginator.get_paginated_response(paginated_results)
 
     def post(self, request):
-        """Add a new domain objects to SOLR."""
-        solr = pysolr.Solr(SOLR_URL, always_commit=True, timeout=10)
+        """Upsert new domain objects to SOLR."""
+        solr = pysolr.Solr(SOLR_URL, always_commit=True, timeout=int(configs.SOLR_TIMEOUT))
         data = request.data
 
         # Create document dynamically.  This requires source/target columns to be exact.
@@ -177,4 +167,34 @@ class DomainCache(APIView):
         solr.add(documents)
 
         return Response(documents, status=status.HTTP_201_CREATED)
+    
+#  Class for getting all domain objects from SOLR.
+class DomainCacheQuery(APIView):
+    def post(self, request):
+        """Post api to query SOLR with input body of request."""
+        solr = pysolr.Solr(SOLR_URL, 
+                           auth=(config.get_secret('SOLR_USER'), 
+                                config.get_secret('SOLR_PASSWORD')), 
+                            always_commit=True, 
+                            timeout=int(configs.SOLR_TIMEOUT))
+
+        solr_params = request.data
+
+        # Safeguarding large requests for data.
+        if "rows" in solr_params:
+            input_rows = solr_params["rows"]
+            if input_rows > configs.SOLR_MAX_ROW:
+                logger.warning(f"API rows request: {input_rows} > than the limit {configs.SOLR_MAX_ROW}")
+                solr_params["rows"] = configs.SOLR_MAX_ROW
+
+        logger.debug(f"Querying SOLR with payload: {solr_params}")
+
+        results = solr.search(**solr_params)
+    
+        return Response (results.raw_response, status=status.HTTP_200_OK)
+    
+        # documents = [doc for doc in results]
+        # documents = [doc for doc in results.docs]
+        logger.debug(documents)
+        return Response (documents, status=status.HTTP_200_OK)
     

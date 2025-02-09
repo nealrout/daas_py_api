@@ -122,7 +122,11 @@ class DomainDbUpsert(APIView):
 class DomainCache(APIView):
     def get(self, request):
         """Retrieve ALL domain objects from SOLR."""
-        solr = pysolr.Solr(SOLR_URL, always_commit=True, timeout=int(configs.SOLR_TIMEOUT))
+        solr = pysolr.Solr(SOLR_URL, 
+                           auth=(config.get_secret('SOLR_USER'), 
+                                config.get_secret('SOLR_PASSWORD')), 
+                            always_commit=True, 
+                            timeout=int(configs.SOLR_TIMEOUT))
 
         # Extract query parameters (if any)
         query = request.GET.get("q", "*:*")  # Default to all domain objects
@@ -168,7 +172,11 @@ class DomainCache(APIView):
 class DomainCacheQuery(APIView):
     def post(self, request):
         """Post api to query SOLR with input body of request."""
-        solr = pysolr.Solr(SOLR_URL, always_commit=True, timeout=int(configs.SOLR_TIMEOUT))
+        solr = pysolr.Solr(SOLR_URL, 
+                           auth=(config.get_secret('SOLR_USER'), 
+                                config.get_secret('SOLR_PASSWORD')), 
+                            always_commit=True, 
+                            timeout=int(configs.SOLR_TIMEOUT))
 
         solr_params = request.data
 
@@ -182,8 +190,6 @@ class DomainCacheQuery(APIView):
         logger.debug(f"Querying SOLR with payload: {solr_params}")
 
         results = solr.search(**solr_params)
-        logger.debug(f"results.raw_response: {results.raw_response}")
-        logger.debug(f"results.nextCursorMark: {results.nextCursorMark}")
     
         return Response (results.raw_response, status=status.HTTP_200_OK)
     

@@ -14,26 +14,31 @@ from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.reverse import reverse
 from rest_framework.pagination import PageNumberPagination
-from daas_py_config import config
-from daas_py_common.logging_config import logger
+from manage import logger, config
 import pysolr
 import json
 
 configs = config.get_configs()
-DOMAIN = os.getenv("DOMAIN").upper()
-SOLR_URL = f"{configs.SOLR_URL}/{getattr(configs, f"SOLR_COLLECTION_{DOMAIN}")}"
+DOMAIN = os.getenv("DOMAIN").upper().strip().replace("'", "")
+logger.debug(DOMAIN)
+SOLR_COLLECTION = getattr(configs, f"SOLR_COLLECTION_{DOMAIN}")
+SOLR_URL = f"{configs.SOLR_URL}/{SOLR_COLLECTION}"
+DB_CHANNEL = getattr(configs, f"DB_CHANNEL_{DOMAIN}")
+DB_PROC_GET_BY_ID = getattr(configs, f"DB_PROC_GET_BY_ID_{DOMAIN}")
+DB_PROC_GET = getattr(configs, f"DB_PROC_GET_{DOMAIN}")
+DB_PROC_UPSERT = getattr(configs, f"DB_PROC_UPSERT_{DOMAIN}")
 
-logger.info (f'SOLR_URL: {SOLR_URL}')
-logger.info (f'DB_CHANNEL_NAME: {getattr(configs, f"DB_CHANNEL_{DOMAIN}")}')
+logger.info (f"SOLR_URL: {SOLR_URL}")
+logger.info (f"DB_CHANNEL_NAME: {DB_CHANNEL}")
 
 # When navigating to the /api/ endpoint, we will show what API are available.
-@api_view(['GET', 'POST'])
+@api_view(["GET", "POST"])
 def api_root(request, format=None):
     """API root view to list available endpoints."""
     return Response({
-        f'{DOMAIN.lower()}-db': reverse(f'{DOMAIN.lower()}-db', request=request, format=format),
-        f'{DOMAIN.lower()}-db-upsert': reverse(f'{DOMAIN.lower()}-db-upsert', request=request, format=format),
-        f'{DOMAIN.lower()}-cache': reverse(f'{DOMAIN.lower()}-cache', request=request, format=format),
+        f"{DOMAIN.lower()}-db": reverse(f"{DOMAIN.lower()}-db", request=request, format=format),
+        f"{DOMAIN.lower()}-db-upsert": reverse(f"{DOMAIN.lower()}-db-upsert", request=request, format=format),
+        f"{DOMAIN.lower()}-cache": reverse(f"{DOMAIN.lower()}-cache", request=request, format=format),
     })
 
 # Class for getting all domain objects in the provided json.
@@ -46,7 +51,7 @@ class DomainDb(APIView):
         
         """Retrieve all domain objects using a stored procedure"""
         with connection.cursor() as cursor:
-            cursor.execute(f"SELECT * FROM {getattr(configs, f"DB_PROC_GET_{DOMAIN}")}();")
+            cursor.execute(f"SELECT * FROM {DB_PROC_GET}();")
             columns = [col[0] for col in cursor.description]  # Get column names
             results = [dict(zip(columns, row)) for row in cursor.fetchall()]  # Convert to dictionary
         
@@ -64,7 +69,7 @@ class DomainDb(APIView):
 
         try:
             with connection.cursor() as cursor:
-                cursor.execute(f"SELECT * FROM {getattr(configs, f"DB_PROC_GET_BY_ID_{DOMAIN}")}(%s);", [json_data])
+                cursor.execute(f"SELECT * FROM {DB_PROC_GET_BY_ID}(%s);", [json_data])
                 rows = cursor.fetchall()
 
                 if rows:
@@ -88,7 +93,7 @@ class DomainDbUpsert(APIView):
         
         """Retrieve all domain objects using a stored procedure"""
         with connection.cursor() as cursor:
-            cursor.execute(f"SELECT * FROM {getattr(configs, f"DB_PROC_GET_{DOMAIN}")}();")
+            cursor.execute(f"SELECT * FROM {DB_PROC_GET}();")
             columns = [col[0] for col in cursor.description]  # Get column names
             results = [dict(zip(columns, row)) for row in cursor.fetchall()]  # Convert to dictionary
         
@@ -109,7 +114,8 @@ class DomainDbUpsert(APIView):
         try:
 
             with connection.cursor() as cursor:
-                cursor.execute(f"SELECT * FROM {getattr(configs, f"DB_PROC_UPSERT_{DOMAIN}")}(%s, %s);", [json_data, getattr(configs, f"DB_CHANNEL_{DOMAIN}")])
+                cursor.execute(f"SELECT * FROM {DB_PROC_UPSERT}(%s, %s);", [json_data, DB_CHANNEL])
+
                 rows = cursor.fetchall()
 
                 if rows:
@@ -163,7 +169,7 @@ class DomainCache(APIView):
         if isinstance(data, dict):  
             documents = [data]  # Convert single dictionary to a list
         elif isinstance(data, list):  
-            documents = data  # Use as-is if it's already a list
+            documents = data  # Use as-is if it"s already a list
         else:
             return Response({"error": "Invalid input format. Expected a list or dictionary."}, status=status.HTTP_400_BAD_REQUEST)        
 

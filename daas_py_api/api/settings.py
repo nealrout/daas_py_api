@@ -16,6 +16,7 @@ from pathlib import Path
 from manage import logger, config
 
 logger.info(f'Loading Django settings')
+
 # Load configurations from daas_py_config
 configs = config.get_configs()
 
@@ -90,6 +91,7 @@ DATABASES = {
         'PASSWORD': config.get_secret('DATABASE_PASSWORD'),
         'HOST': configs.DATABASE_HOST,
         'PORT': configs.DATABASE_PORT,
+        'OPTIONS' : { 'options': f'-c search_path={configs.DATABASE_SCHEMA}' },
     }
 }
 

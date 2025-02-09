@@ -5,7 +5,7 @@ import sys
 from bootstrap import bootstrap
 
 logger, config = bootstrap()
-configs = config.get_configs()
+
 logger.info(f'Starting Django manage')
 
 def main():

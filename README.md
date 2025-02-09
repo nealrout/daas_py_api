@@ -53,7 +53,13 @@ __Start Django api:__
 python manage.py runserver
 
 ## Package
-python setup.py sdist
+<!-- pip install build -->
+python -m build
+cd "D:\src\github\daas_py\daas_py_config"
+
+
+<!-- python setup.py sdist
+python setup.py sdist bdist_wheel -->
 
 ## Features
 - List all objects from database.

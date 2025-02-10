@@ -28,13 +28,16 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-*o#a#9kg+)clbvxigz!z^gg$1ga9fj3$aj!h76u-!&$gazgdds'
+# SECRET_KEY = 'django-insecure-*o#a#9kg+)clbvxigz!z^gg$1ga9fj3$aj!h76u-!&$gazgdds'
+SECRET_KEY = config.get_secret('DJANGO_SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
 ALLOWED_HOSTS = []
 
+# Redirect users after login
+LOGIN_REDIRECT_URL = "/api/" 
 
 # Application definition
 
@@ -146,13 +149,18 @@ TEST_RUNNER = 'api.test_runner.NoDbTestRunner'
 REST_FRAMEWORK = {
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 10,  # Sets pagination to 10 items per page
-    'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework.authentication.BasicAuthentication',
-        'rest_framework.authentication.SessionAuthentication',  # Optional for Browsable API
-    ],
+    # 'DEFAULT_AUTHENTICATION_CLASSES': [
+    #     'rest_framework.authentication.BasicAuthentication',
+    #     'rest_framework.authentication.SessionAuthentication',  # Optional for Browsable API
+    # ],
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',  # Requires authentication for all endpoints
     ],
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        # 'rest_framework.authentication.BasicAuthentication',
+        'rest_framework_simplejwt.authentication.JWTAuthentication',  # Enable JWT auth
+        'rest_framework.authentication.SessionAuthentication',  # Optional for Browsable API
+    ),
 }
 
 CUSTOM_AUTH_USERNAME = config.get_secret('API_BASIC_AUTH_USER')

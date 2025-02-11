@@ -14,9 +14,12 @@ from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.reverse import reverse
 from rest_framework.pagination import PageNumberPagination
+from rest_framework.permissions import IsAuthenticated
+from rest_framework_simplejwt.authentication import JWTAuthentication
 from manage import logger, config
 import pysolr
 import json
+from .permissions import FacilityPermission
 
 configs = config.get_configs()
 DOMAIN = os.getenv("DOMAIN").upper().strip().replace("'", "")
@@ -44,10 +47,19 @@ def api_root(request, format=None):
 
 # Class for getting all domain objects in the provided json.
 class DomainDb(APIView):
+    # Require authentication and authroization.  Allow read-only access as well.
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated, FacilityPermission] 
+
     def get(self, request):
         """Retrieve all domain objects using a stored procedure"""
+        user = request.user  # Authenticated user
+        token = request.auth  # JWT token payload
+        user_id = token.get("user_id", [])
+        facilities = token.get("facilities", [])
+        
         with connection.cursor() as cursor:
-            cursor.execute(f"SELECT * FROM {DB_PROC_GET}();")
+            cursor.execute(f"SELECT * FROM {DB_PROC_GET}(%s);", [user_id])
             columns = [col[0] for col in cursor.description]  # Get column names
             results = [dict(zip(columns, row)) for row in cursor.fetchall()]  # Convert to dictionary
         
@@ -61,11 +73,16 @@ class DomainDb(APIView):
     
     def post(self, request):
         """Retrieve multiple domain objects using a stored procedure with JSON list of IDs"""
-        json_data = json.dumps(request.data)
-
+        
         try:
+            user = request.user  # Authenticated user
+            token = request.auth  # JWT token payload
+            user_id = token.get("user_id", [])
+
+            json_data = json.dumps(request.data)
+
             with connection.cursor() as cursor:
-                cursor.execute(f"SELECT * FROM {DB_PROC_GET_BY_ID}(%s);", [json_data])
+                cursor.execute(f"SELECT * FROM {DB_PROC_GET_BY_ID}(%s, %s);", [json_data, user_id])
                 rows = cursor.fetchall()
 
                 if rows:
@@ -80,21 +97,10 @@ class DomainDb(APIView):
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class DomainDbUpsert(APIView):
-    def get(self, request):
-        """Retrieve all domain objects using a stored procedure"""
-        with connection.cursor() as cursor:
-            cursor.execute(f"SELECT * FROM {DB_PROC_GET}();")
-            columns = [col[0] for col in cursor.description]  # Get column names
-            results = [dict(zip(columns, row)) for row in cursor.fetchall()]  # Convert to dictionary
-        
-        # Apply pagination
-        paginator = PageNumberPagination()
-        paginator.page_size = int(configs.PAGINATION_SIZE_DB)  # Set the number of items per page
-        paginated_results = paginator.paginate_queryset(results, request)
+    # Require authentication and authroization.  
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated, FacilityPermission]
 
-        # Return the paginated response
-        return paginator.get_paginated_response(paginated_results)
-    
     def post(self, request):
         """Retrieve multiple domain objects using a stored procedure with JSON list of IDs"""
         # logger.debug(f"request: {request.data}")
@@ -102,9 +108,12 @@ class DomainDbUpsert(APIView):
         json_data = json.dumps(request.data)
 
         try:
+            user = request.user  # Authenticated user
+            token = request.auth  # JWT token payload
+            user_id = token.get("user_id", [])
 
             with connection.cursor() as cursor:
-                cursor.execute(f"SELECT * FROM {DB_PROC_UPSERT}(%s, %s);", [json_data, DB_CHANNEL])
+                cursor.execute(f"SELECT * FROM {DB_PROC_UPSERT}(%s, %s, %s);", [json_data, DB_CHANNEL, user_id])
 
                 rows = cursor.fetchall()
 
@@ -120,6 +129,10 @@ class DomainDbUpsert(APIView):
 
 
 class DomainCache(APIView):
+    # Require authentication and authroization.  
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated, FacilityPermission] 
+
     def get(self, request):
         """Retrieve ALL domain objects from SOLR."""
         solr = pysolr.Solr(SOLR_URL, 
@@ -170,6 +183,10 @@ class DomainCache(APIView):
     
 #  Class for getting all domain objects from SOLR.
 class DomainCacheQuery(APIView):
+    # Require authentication and authroization. 
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated, FacilityPermission] 
+
     def post(self, request):
         """Post api to query SOLR with input body of request."""
         solr = pysolr.Solr(SOLR_URL, 

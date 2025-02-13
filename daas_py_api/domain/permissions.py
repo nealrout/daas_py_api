@@ -17,7 +17,7 @@ class FacilityPermission(BasePermission):
             return False
 
         # Extract facilities from JWT
-        user_facilities = token.get("facilities", [])
+        user_facilities = token.get("facility", [])
         # Get requested facility (from query params, headers, or body)
         requested_facility = request.query_params.get("facility")
 

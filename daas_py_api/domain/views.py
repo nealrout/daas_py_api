@@ -45,6 +45,13 @@ def api_root(request, format=None):
         f"{DOMAIN.lower()}-cache-query": reverse(f"{DOMAIN.lower()}-cache-query", request=request, format=format),
     })
 
+def get_jwt_hashed_values(request):
+    user = request.user  # Authenticated user
+    token = request.auth  # JWT token payload
+    user_id = token.get("user_id", [])
+    facilities = token.get("facility", [])
+    return user_id, user, facilities
+
 # Class for getting all domain objects in the provided json.
 class DomainDb(APIView):
     # Require authentication and authroization.  Allow read-only access as well.
@@ -53,11 +60,9 @@ class DomainDb(APIView):
 
     def get(self, request):
         """Retrieve all domain objects using a stored procedure"""
-        user = request.user  # Authenticated user
-        token = request.auth  # JWT token payload
-        user_id = token.get("user_id", [])
-        facilities = token.get("facilities", [])
-        
+
+        user_id, user, facilities = get_jwt_hashed_values(request=request)
+   
         with connection.cursor() as cursor:
             cursor.execute(f"SELECT * FROM {DB_PROC_GET}(%s);", [user_id])
             columns = [col[0] for col in cursor.description]  # Get column names
@@ -108,9 +113,7 @@ class DomainDbUpsert(APIView):
         json_data = json.dumps(request.data)
 
         try:
-            user = request.user  # Authenticated user
-            token = request.auth  # JWT token payload
-            user_id = token.get("user_id", [])
+            user_id, user, facilities = get_jwt_hashed_values(request=request)
 
             with connection.cursor() as cursor:
                 cursor.execute(f"SELECT * FROM {DB_PROC_UPSERT}(%s, %s, %s);", [json_data, DB_CHANNEL, user_id])
@@ -135,6 +138,8 @@ class DomainCache(APIView):
 
     def get(self, request):
         """Retrieve ALL domain objects from SOLR."""
+        user_id, user, facilities = get_jwt_hashed_values(request=request)
+
         solr = pysolr.Solr(SOLR_URL, 
                            auth=(config.get_secret('SOLR_USER'), 
                                 config.get_secret('SOLR_PASSWORD')), 
@@ -145,12 +150,21 @@ class DomainCache(APIView):
         query = request.GET.get("q", "*:*")  # Default to all domain objects
         filters = request.GET.getlist("fq")  # Filter queries if provided
 
+        # add a query to filter for only the facilities that the user is authorized to see.
+
         # Construct Default SOLR search parameters
         solr_params = {
             "q": query,
             "fq": filters,
             "rows": int(configs.SOLR_MAX_ROW) 
         }
+
+        #### AUTHORIZATION - only get facilitties user has access to  ####
+        facilities_filter = f"fac_nbr:({' '.join(facilities)})"
+        solr_params['fq'].append(facilities_filter)
+        #### AUTHORIZATION - only get facilitties user has access to  ####
+
+        logger.debug(f"user_id:{user_id}, Querying SOLR with payload: {solr_params}")
 
         results = solr.search(**solr_params)
         documents = [doc for doc in results]
@@ -164,7 +178,14 @@ class DomainCache(APIView):
 
     def post(self, request):
         """Upsert new domain objects to SOLR."""
-        solr = pysolr.Solr(SOLR_URL, always_commit=True, timeout=int(configs.SOLR_TIMEOUT))
+        user_id, user, facilities = get_jwt_hashed_values(request=request)
+
+        solr = pysolr.Solr(SOLR_URL, 
+                    auth=(config.get_secret('SOLR_USER'), 
+                        config.get_secret('SOLR_PASSWORD')), 
+                    always_commit=True, 
+                    timeout=int(configs.SOLR_TIMEOUT))
+        
         data = request.data
 
         # Create document dynamically.  This requires source/target columns to be exact.
@@ -176,8 +197,16 @@ class DomainCache(APIView):
         else:
             return Response({"error": "Invalid input format. Expected a list or dictionary."}, status=status.HTTP_400_BAD_REQUEST)        
 
+        # Verify required field fac_nbr is provided.
+        missing_fac_nbr = [doc for doc in documents if 'fac_nbr' not in doc]
+        if len(missing_fac_nbr) > 0:
+            return Response({"error": "Missing required field fac_nbr"}, status=status.HTTP_400_BAD_REQUEST)
+
+        #### AUTHORIZATION - remove document updates where users doesn't have access  ####
+        filtered_documents = [doc for doc in documents if doc['fac_nbr'] in facilities]
+
         # Add documents to SOLR
-        solr.add(documents)
+        solr.add(filtered_documents)
 
         return Response(documents, status=status.HTTP_201_CREATED)
     
@@ -189,6 +218,8 @@ class DomainCacheQuery(APIView):
 
     def post(self, request):
         """Post api to query SOLR with input body of request."""
+        user_id, user, facilities = get_jwt_hashed_values(request=request)
+
         solr = pysolr.Solr(SOLR_URL, 
                            auth=(config.get_secret('SOLR_USER'), 
                                 config.get_secret('SOLR_PASSWORD')), 
@@ -197,6 +228,11 @@ class DomainCacheQuery(APIView):
 
         solr_params = request.data
 
+        #### AUTHORIZATION - only get facilitties user has access to  ####
+        facilities_filter = f"fac_nbr:({' '.join(facilities)})"
+        solr_params['fq'].append(facilities_filter)
+        #### AUTHORIZATION - only get facilitties user has access to  ####
+
         # Safeguarding large requests for data.
         if "rows" in solr_params:
             input_rows = solr_params["rows"]
@@ -204,14 +240,9 @@ class DomainCacheQuery(APIView):
                 logger.warning(f"API rows request: {input_rows} > than the limit {configs.SOLR_MAX_ROW}")
                 solr_params["rows"] = configs.SOLR_MAX_ROW
 
-        logger.debug(f"Querying SOLR with payload: {solr_params}")
+        logger.debug(f"user_id:{user_id}, Querying SOLR with payload: {solr_params}")
 
         results = solr.search(**solr_params)
     
         return Response (results.raw_response, status=status.HTTP_200_OK)
-    
-        # documents = [doc for doc in results]
-        # documents = [doc for doc in results.docs]
-        logger.debug(documents)
-        return Response (documents, status=status.HTTP_200_OK)
     

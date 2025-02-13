@@ -4,8 +4,10 @@ build
 requests
 django
 djangorestframework
+djangorestframework-simplejwt
 psycopg2
 python-dotenv
 setuptools
 wheel
 pysolr
+whitenoise

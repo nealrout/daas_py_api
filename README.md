@@ -16,7 +16,7 @@ https://github.com/nealrout/daas_db
 ## Table of Contents
 
 - [Requirements](#requirements)
-- [Uninstall-Install](#uninstall-install)
+- [Install-Uninstall](#install-uninstall)
 - [Usage](#usage)
 - [Package](#package)
 - [Features](#features)
@@ -37,10 +37,10 @@ DYNACONF_SECRET_KEY='\<secret_key\>'
 
 ## Install-Uninstall
 __Install:__  
-python -m pip install .
+python -m pip install daas_py_api
 
 __Uninstall:__  
-python -m pip uninstall daas_py_api_asset
+python -m pip uninstall daas_py_api
 
 __Rebuild from source:__  
 python -m pip install --no-binary :all: .
@@ -53,10 +53,7 @@ __Start Django api:__
 python manage.py runserver
 
 ## Package
-<!-- pip install build -->
-python -m build
-cd "D:\src\github\daas_py\daas_py_config"
-
+python -m build daas_py_config
 
 <!-- python setup.py sdist
 python setup.py sdist bdist_wheel -->

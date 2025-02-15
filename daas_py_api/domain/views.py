@@ -161,7 +161,7 @@ class DomainCache(APIView):
 
         #### AUTHORIZATION - only get facilitties user has access to  ####
         facilities_filter = f"fac_nbr:({' '.join(facilities)})"
-        solr_params['fq'].append(facilities_filter)
+        solr_params.setdefault('fq', []).append(facilities_filter)
         #### AUTHORIZATION - only get facilitties user has access to  ####
 
         logger.debug(f"user_id:{user_id}, Querying SOLR with payload: {solr_params}")
@@ -230,7 +230,7 @@ class DomainCacheQuery(APIView):
 
         #### AUTHORIZATION - only get facilitties user has access to  ####
         facilities_filter = f"fac_nbr:({' '.join(facilities)})"
-        solr_params['fq'].append(facilities_filter)
+        solr_params.setdefault('fq', []).append(facilities_filter)
         #### AUTHORIZATION - only get facilitties user has access to  ####
 
         # Safeguarding large requests for data.

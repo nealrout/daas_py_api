@@ -27,6 +27,7 @@ logger.debug(DOMAIN)
 SOLR_COLLECTION = getattr(configs, f"SOLR_COLLECTION_{DOMAIN}")
 SOLR_URL = f"{configs.SOLR_URL}/{SOLR_COLLECTION}"
 DB_CHANNEL = getattr(configs, f"DB_CHANNEL_{DOMAIN}")
+DB_CHANNEL_PARENT = getattr(configs, f"DB_CHANNEL_PARENT_{DOMAIN}", None)
 DB_FUNC_GET_BY_ID = getattr(configs, f"DB_FUNC_GET_BY_ID_{DOMAIN}")
 DB_FUNC_GET = getattr(configs, f"DB_FUNC_GET_{DOMAIN}")
 DB_FUNC_UPSERT = getattr(configs, f"DB_FUNC_UPSERT_{DOMAIN}")
@@ -116,7 +117,7 @@ class DomainDbUpsert(APIView):
             user_id, user, facilities = get_jwt_hashed_values(request=request)
 
             with connection.cursor() as cursor:
-                cursor.execute(f"SELECT * FROM {DB_FUNC_UPSERT}(%s, %s, %s);", [json_data, DB_CHANNEL, user_id])
+                cursor.execute(f"SELECT * FROM {DB_FUNC_UPSERT}(%s, %s, %s, %s);", [json_data, DB_CHANNEL, user_id, DB_CHANNEL_PARENT])
 
                 rows = cursor.fetchall()
 
@@ -203,7 +204,7 @@ class DomainCache(APIView):
             return Response({f"error": "Missing required field {configs.API_AUTH_FACILITY_KEY}"}, status=status.HTTP_400_BAD_REQUEST)
 
         #### AUTHORIZATION - remove document updates where users doesn't have access  ####
-        filtered_documents = [doc for doc in documents if doc[configs.configs.API_AUTH_FACILITY_KEY] in facilities]
+        filtered_documents = [doc for doc in documents if doc[configs.API_AUTH_FACILITY_KEY] in facilities]
 
         # Add documents to SOLR
         solr.add(filtered_documents)

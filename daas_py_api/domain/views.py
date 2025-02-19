@@ -160,7 +160,7 @@ class DomainCache(APIView):
         }
 
         #### AUTHORIZATION - only get facilitties user has access to  ####
-        facilities_filter = f"fac_nbr:({' '.join(facilities)})"
+        facilities_filter = f"{configs.API_AUTH_FACILITY_KEY}:({' '.join(facilities)})"
         solr_params.setdefault('fq', []).append(facilities_filter)
         #### AUTHORIZATION - only get facilitties user has access to  ####
 
@@ -197,13 +197,13 @@ class DomainCache(APIView):
         else:
             return Response({"error": "Invalid input format. Expected a list or dictionary."}, status=status.HTTP_400_BAD_REQUEST)        
 
-        # Verify required field fac_nbr is provided.
-        missing_fac_nbr = [doc for doc in documents if 'fac_nbr' not in doc]
-        if len(missing_fac_nbr) > 0:
-            return Response({"error": "Missing required field fac_nbr"}, status=status.HTTP_400_BAD_REQUEST)
+        # Verify required field facility_nbr is provided.
+        missing_facility_nbr = [doc for doc in documents if configs.API_AUTH_FACILITY_KEY not in doc]
+        if len(missing_facility_nbr) > 0:
+            return Response({f"error": "Missing required field {configs.API_AUTH_FACILITY_KEY}"}, status=status.HTTP_400_BAD_REQUEST)
 
         #### AUTHORIZATION - remove document updates where users doesn't have access  ####
-        filtered_documents = [doc for doc in documents if doc['fac_nbr'] in facilities]
+        filtered_documents = [doc for doc in documents if doc[configs.configs.API_AUTH_FACILITY_KEY] in facilities]
 
         # Add documents to SOLR
         solr.add(filtered_documents)
@@ -229,7 +229,7 @@ class DomainCacheQuery(APIView):
         solr_params = request.data
 
         #### AUTHORIZATION - only get facilitties user has access to  ####
-        facilities_filter = f"fac_nbr:({' '.join(facilities)})"
+        facilities_filter = f"{configs.API_AUTH_FACILITY_KEY}:({' '.join(facilities)})"
         solr_params.setdefault('fq', []).append(facilities_filter)
         #### AUTHORIZATION - only get facilitties user has access to  ####
 

@@ -27,9 +27,9 @@ logger.debug(DOMAIN)
 SOLR_COLLECTION = getattr(configs, f"SOLR_COLLECTION_{DOMAIN}")
 SOLR_URL = f"{configs.SOLR_URL}/{SOLR_COLLECTION}"
 DB_CHANNEL = getattr(configs, f"DB_CHANNEL_{DOMAIN}")
-DB_PROC_GET_BY_ID = getattr(configs, f"DB_PROC_GET_BY_ID_{DOMAIN}")
-DB_PROC_GET = getattr(configs, f"DB_PROC_GET_{DOMAIN}")
-DB_PROC_UPSERT = getattr(configs, f"DB_PROC_UPSERT_{DOMAIN}")
+DB_FUNC_GET_BY_ID = getattr(configs, f"DB_FUNC_GET_BY_ID_{DOMAIN}")
+DB_FUNC_GET = getattr(configs, f"DB_FUNC_GET_{DOMAIN}")
+DB_FUNC_UPSERT = getattr(configs, f"DB_FUNC_UPSERT_{DOMAIN}")
 
 logger.info (f"SOLR_URL: {SOLR_URL}")
 logger.info (f"DB_CHANNEL_NAME: {DB_CHANNEL}")
@@ -64,7 +64,7 @@ class DomainDb(APIView):
         user_id, user, facilities = get_jwt_hashed_values(request=request)
    
         with connection.cursor() as cursor:
-            cursor.execute(f"SELECT * FROM {DB_PROC_GET}(%s);", [user_id])
+            cursor.execute(f"SELECT * FROM {DB_FUNC_GET}(%s);", [user_id])
             columns = [col[0] for col in cursor.description]  # Get column names
             results = [dict(zip(columns, row)) for row in cursor.fetchall()]  # Convert to dictionary
         
@@ -87,7 +87,7 @@ class DomainDb(APIView):
             json_data = json.dumps(request.data)
 
             with connection.cursor() as cursor:
-                cursor.execute(f"SELECT * FROM {DB_PROC_GET_BY_ID}(%s, %s);", [json_data, user_id])
+                cursor.execute(f"SELECT * FROM {DB_FUNC_GET_BY_ID}(%s, %s);", [json_data, user_id])
                 rows = cursor.fetchall()
 
                 if rows:
@@ -116,7 +116,7 @@ class DomainDbUpsert(APIView):
             user_id, user, facilities = get_jwt_hashed_values(request=request)
 
             with connection.cursor() as cursor:
-                cursor.execute(f"SELECT * FROM {DB_PROC_UPSERT}(%s, %s, %s);", [json_data, DB_CHANNEL, user_id])
+                cursor.execute(f"SELECT * FROM {DB_FUNC_UPSERT}(%s, %s, %s);", [json_data, DB_CHANNEL, user_id])
 
                 rows = cursor.fetchall()
 
@@ -161,7 +161,7 @@ class DomainCache(APIView):
 
         #### AUTHORIZATION - only get facilitties user has access to  ####
         facilities_filter = f"fac_nbr:({' '.join(facilities)})"
-        solr_params['fq'].append(facilities_filter)
+        solr_params.setdefault('fq', []).append(facilities_filter)
         #### AUTHORIZATION - only get facilitties user has access to  ####
 
         logger.debug(f"user_id:{user_id}, Querying SOLR with payload: {solr_params}")
@@ -230,7 +230,7 @@ class DomainCacheQuery(APIView):
 
         #### AUTHORIZATION - only get facilitties user has access to  ####
         facilities_filter = f"fac_nbr:({' '.join(facilities)})"
-        solr_params['fq'].append(facilities_filter)
+        solr_params.setdefault('fq', []).append(facilities_filter)
         #### AUTHORIZATION - only get facilitties user has access to  ####
 
         # Safeguarding large requests for data.

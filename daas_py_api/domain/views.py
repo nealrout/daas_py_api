@@ -96,7 +96,7 @@ class DomainDb(APIView):
                     results = [dict(zip(columns, row)) for row in rows]
                     return Response(results)
 
-            return Response({"error": f"No {DOMAIN.lower()} found"}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"error": f"No {DOMAIN.lower()} found"}, status=status.HTTP_204_NO_CONTENT)
 
         except Exception as e:
             logger.error(f"Error retrieving {DOMAIN.lower()}: {str(e)}")
@@ -126,7 +126,7 @@ class DomainDbUpsert(APIView):
                     results = [dict(zip(columns, row)) for row in rows]
                     return Response(results)
 
-            return Response({"error": f"No {DOMAIN.lower()} found"}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"error": f"No {DOMAIN.lower()} found"}, status=status.HTTP_204_NO_CONTENT)
         except Exception as e:
             logger.error(f"Error retrieving {DOMAIN.lower()}: {str(e)}")
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

@@ -99,7 +99,7 @@ class DomainDb(APIView):
             return Response({"error": f"No {DOMAIN.lower()} found"}, status=status.HTTP_204_NO_CONTENT)
 
         except Exception as e:
-            logger.error(f"Error retrieving {DOMAIN.lower()}: {str(e)}")
+            logger.exception(f"❌Error retrieving {DOMAIN.lower()}: {str(e)}")
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class DomainDbUpsert(APIView):
@@ -128,7 +128,7 @@ class DomainDbUpsert(APIView):
 
             return Response({"error": f"No {DOMAIN.lower()} found"}, status=status.HTTP_204_NO_CONTENT)
         except Exception as e:
-            logger.error(f"Error retrieving {DOMAIN.lower()}: {str(e)}")
+            logger.exception(f"❌Error retrieving {DOMAIN.lower()}: {str(e)}")
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -162,6 +162,11 @@ class DomainCache(APIView):
 
         #### AUTHORIZATION - only get facilitties user has access to  ####
         facilities_filter = f"{configs.API_AUTH_FACILITY_KEY}:({' '.join(facilities)})"
+
+        # Ensure `fq` is always a list
+        if isinstance(solr_params.get("fq"), str):
+            solr_params["fq"] = [solr_params["fq"]]  # Convert existing string to list
+            
         solr_params.setdefault('fq', []).append(facilities_filter)
         #### AUTHORIZATION - only get facilitties user has access to  ####
 
@@ -231,6 +236,11 @@ class DomainCacheQuery(APIView):
 
         #### AUTHORIZATION - only get facilitties user has access to  ####
         facilities_filter = f"{configs.API_AUTH_FACILITY_KEY}:({' '.join(facilities)})"
+
+        # Ensure `fq` is always a list
+        if isinstance(solr_params.get("fq"), str):
+            solr_params["fq"] = [solr_params["fq"]]  # Convert existing string to list
+
         solr_params.setdefault('fq', []).append(facilities_filter)
         #### AUTHORIZATION - only get facilitties user has access to  ####
 
